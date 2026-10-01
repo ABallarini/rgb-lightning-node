@@ -310,7 +310,14 @@ async fn penalty_transaction() {
         .expect("sweep tx spending the justice output");
     mine(false);
 
-    // Assert justice tx structure: one input (the revoked to_local), one output.
+    // Confirm and settle the sweep: the sweeper self-provided the swept 600 RGB
+    // to B's own wallet, so B must refresh to sync the confirmed sweep and
+    // accept the self-provided consignment before the balance is spendable.
+    refresh_transfers(node2_addr).await;
+    refresh_transfers(node2_addr).await;
+
+    // Assert justice tx structure: one input (the revoked to_local), two outputs
+    // (vout 0 = the BTC destination, vout 1 = the RGB OP_RETURN).
     let justice_tx = tx_json(&justice_txid);
     let justice_inputs = justice_tx["vin"].as_array().expect("justice vin");
     assert_eq!(justice_inputs.len(), 1, "justice tx has one input");
@@ -325,9 +332,22 @@ async fn penalty_transaction() {
         "justice input spends the to_local outpoint"
     );
     let justice_outputs = justice_tx["vout"].as_array().expect("justice vout");
-    assert_eq!(justice_outputs.len(), 1, "justice tx has one output");
+    assert_eq!(justice_outputs.len(), 2, "justice tx has two outputs");
+    assert_eq!(
+        justice_outputs[1]["scriptPubKey"]["type"].as_str(),
+        Some("nulldata"),
+        "justice second output is the RGB OP_RETURN"
+    );
+    assert_eq!(
+        justice_outputs[1]["value"].as_f64(),
+        Some(0.0),
+        "justice RGB OP_RETURN output has zero value"
+    );
 
-    // Assert sweep tx structure: one input (justice:0), one output.
+    // Assert sweep tx structure: one input (justice:0), three outputs.
+    // The sweep carries RGB, so color_psbt inserts the OP_RETURN first:
+    // vout 0 = the RGB OP_RETURN, vout 1 = P2WPKH BTC destination,
+    // vout 2 = Taproot RGB receive output at dust.
     let sweep_tx = tx_json(&sweep_txid);
     let sweep_inputs = sweep_tx["vin"].as_array().expect("sweep vin");
     assert_eq!(sweep_inputs.len(), 1, "sweep tx has one input");
@@ -342,7 +362,17 @@ async fn penalty_transaction() {
         "sweep input spends justice:0"
     );
     let sweep_outputs = sweep_tx["vout"].as_array().expect("sweep vout");
-    assert_eq!(sweep_outputs.len(), 1, "sweep tx has one output");
+    assert_eq!(sweep_outputs.len(), 3, "sweep tx has three outputs");
+    assert_eq!(
+        sweep_outputs[0]["scriptPubKey"]["type"].as_str(),
+        Some("nulldata"),
+        "sweep first output is the RGB OP_RETURN"
+    );
+    assert_eq!(
+        sweep_outputs[0]["value"].as_f64(),
+        Some(0.0),
+        "sweep RGB OP_RETURN output has zero value"
+    );
 
     let sweep_out = to_local_output(&sweep_tx).1;
     let expected_node2_btc = node2_btc_before + sweep_out;
@@ -358,6 +388,7 @@ async fn penalty_transaction() {
 
     // A's wallet was never touched by the channel; its balance must be unchanged.
     let (node1_addr, _) = start_node(&test_dir_node1, NODE1_PEER_PORT, true).await;
+    refresh_transfers(node1_addr).await;
     wait_for_btc_balance_exact(node1_addr, node1_btc_after_open).await;
     // A issued 1000 RGB; the 600 put in the channel went to B on the penalty,
     // so A is left with the 400 it never committed.
