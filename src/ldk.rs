@@ -1898,7 +1898,7 @@ impl RgbOutputSpender {
         for consignment in consignments {
             let contract_id = consignment.contract_id();
 
-            // persist consignment and hand it to rgb-lib (out-of-band)
+            // persist consignment and hand it to rgb-lib (self-provided sweep)
             let consignment_path = self
                 .static_state
                 .ldk_data_dir
@@ -1910,7 +1910,7 @@ impl RgbOutputSpender {
             let rgb_wallet_wrapper_copy = self.rgb_wallet_wrapper.clone();
             futures::executor::block_on(tokio::task::spawn_blocking(move || {
                 rgb_wallet_wrapper_copy
-                    .provide_out_of_band_consignment(consignment_path_str, vec![])
+                    .provide_own_sweep_consignment(consignment_path_str, vec![])
             }))
             .unwrap()
             .map_err(|e| format!("cannot provide consignment: {e}"))?;
@@ -2119,6 +2119,7 @@ pub(crate) async fn start_ldk(
         Arc::clone(&keys_manager),
         Arc::clone(&broadcaster),
         Arc::clone(&fee_estimator),
+        Some(ldk_data_dir.to_string_lossy().to_string()),
     ));
 
     // Initialize the ChainMonitor

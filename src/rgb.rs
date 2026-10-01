@@ -656,6 +656,18 @@ impl RgbLibWalletWrapper {
         )
     }
 
+    pub(crate) fn provide_own_sweep_consignment(
+        &self,
+        consignment_path: String,
+        media_file_paths: Vec<String>,
+    ) -> Result<RefreshResult, RgbLibError> {
+        self.get_rgb_wallet().provide_own_sweep_consignment(
+            self.online,
+            consignment_path,
+            media_file_paths,
+        )
+    }
+
     pub(crate) fn refresh(
         &self,
         asset_id: Option<String>,
