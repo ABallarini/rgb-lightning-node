@@ -1898,7 +1898,7 @@ impl RgbOutputSpender {
         for consignment in consignments {
             let contract_id = consignment.contract_id();
 
-            // persist consignment and hand it to rgb-lib (out-of-band)
+            // persist consignment and hand it to rgb-lib (self-provided sweep)
             let consignment_path = self
                 .static_state
                 .ldk_data_dir
@@ -2119,6 +2119,7 @@ pub(crate) async fn start_ldk(
         Arc::clone(&keys_manager),
         Arc::clone(&broadcaster),
         Arc::clone(&fee_estimator),
+        Some(ldk_data_dir.to_string_lossy().to_string()),
     ));
 
     // Initialize the ChainMonitor
