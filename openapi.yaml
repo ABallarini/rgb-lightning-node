@@ -2881,6 +2881,11 @@ components:
         preimage:
           type: string
           example: 89d28bd306aa9bb906fd0ac31092d04c37c919a171b343083167e2a3cdc60578
+        claim_deadline:
+          type:
+            - integer
+            - 'null'
+          example: 2546173
         description:
           type:
             - string
